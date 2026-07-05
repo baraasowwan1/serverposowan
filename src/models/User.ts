@@ -4,10 +4,12 @@ import bcrypt from "bcryptjs";
 export interface IUser extends Document {
   name: string;
   email: string;
+  username: string;         // login username (e.g. "admin", "cashier1")
   password: string;
-  role: "superadmin" | "admin" | "manager" | "cashier" | "inventory";
-  permissions: string[];
-  isActive: boolean;
+  role: string;             // "مالك المنصة" | "مدير النظام" | "مدير" | "كاشير" | "موظف مخزون"
+  permissions: string[] | number;
+  status: "نشط" | "غير نشط";
+  storeSlug: string;        // which store this user belongs to (empty = platform owner)
   lastLogin?: Date;
   avatar?: string;
   phone?: string;
@@ -16,19 +18,17 @@ export interface IUser extends Document {
 }
 
 const UserSchema = new Schema<IUser>({
-  name:     { type: String, required: true, trim: true },
-  email:    { type: String, required: true, unique: true, lowercase: true, trim: true },
-  password: { type: String, required: true, minlength: 6 },
-  role: {
-    type: String,
-    enum: ["superadmin", "admin", "manager", "cashier", "inventory"],
-    default: "cashier",
-  },
-  permissions: { type: [String], default: [] },
-  isActive:    { type: Boolean, default: true },
+  name:        { type: String, required: true, trim: true },
+  email:       { type: String, required: true, unique: true, lowercase: true, trim: true },
+  username:    { type: String, required: true, unique: true, lowercase: true, trim: true },
+  password:    { type: String, required: true, minlength: 4 },
+  role:        { type: String, default: "كاشير" },
+  permissions: { type: Schema.Types.Mixed, default: 3 },
+  status:      { type: String, enum: ["نشط", "غير نشط"], default: "نشط" },
+  storeSlug:   { type: String, default: "" },
   lastLogin:   { type: Date },
-  avatar:      { type: String },
-  phone:       { type: String },
+  avatar:      { type: String, default: "" },
+  phone:       { type: String, default: "" },
 }, { timestamps: true });
 
 // Hash password before save
@@ -43,18 +43,6 @@ UserSchema.methods.matchPassword = async function (entered: string): Promise<boo
   return bcrypt.compare(entered, this.password);
 };
 
-// Default permissions by role
-UserSchema.pre("save", function (next) {
-  if (!this.isModified("role")) return next();
-  const rolePerms: Record<string, string[]> = {
-    superadmin: ["*"],
-    admin: ["dashboard", "pos", "products", "inventory", "sales", "purchases", "customers", "suppliers", "expenses", "reports", "users", "settings"],
-    manager:   ["dashboard", "pos", "products", "inventory", "sales", "purchases", "customers", "suppliers", "expenses", "reports"],
-    cashier:   ["dashboard", "pos", "sales", "customers"],
-    inventory: ["dashboard", "products", "inventory", "purchases", "suppliers"],
-  };
-  if (!this.permissions.length) this.permissions = rolePerms[this.role] ?? [];
-  next();
-});
+UserSchema.index({ storeSlug: 1 });
 
 export const User = mongoose.model<IUser>("User", UserSchema);
