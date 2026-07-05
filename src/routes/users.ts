@@ -36,9 +36,9 @@ router.patch("/:id/toggle", async (req: AuthRequest, res: Response) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user) { res.status(404).json({ success: false, message: "المستخدم غير موجود" }); return; }
-    user.isActive = !user.isActive;
+    user.status = user.status === "نشط" ? "غير نشط" : "نشط";
     await user.save({ validateBeforeSave: false });
-    res.json({ success: true, data: { isActive: user.isActive }, message: `تم ${user.isActive ? "تفعيل" : "تعطيل"} الحساب` });
+    res.json({ success: true, data: { status: user.status }, message: `تم ${user.status === "نشط" ? "تفعيل" : "تعطيل"} الحساب` });
   } catch { res.status(500).json({ success: false, message: "خطأ في الخادم" }); }
 });
 
