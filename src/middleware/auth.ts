@@ -24,7 +24,7 @@ export const protect = async (req: AuthRequest, res: Response, next: NextFunctio
       res.status(401).json({ success: false, message: "المستخدم غير موجود" });
       return;
     }
-    if (!user.isActive) {
+    if (user.status !== "نشط") {
       res.status(401).json({ success: false, message: "الحساب معطّل" });
       return;
     }
