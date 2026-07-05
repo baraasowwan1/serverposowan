@@ -1,0 +1,68 @@
+import { Router, Request, Response } from "express";
+import jwt from "jsonwebtoken";
+import { User } from "../models/User";
+import { protect, AuthRequest } from "../middleware/auth";
+
+const router = Router();
+
+const signToken = (id: string) =>
+  jwt.sign({ id }, process.env.JWT_SECRET!, { expiresIn: process.env.JWT_EXPIRES_IN || "7d" });
+
+// POST /api/auth/login
+router.post("/login", async (req: Request, res: Response) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      res.status(400).json({ success: false, message: "البريد الإلكتروني وكلمة المرور مطلوبان" });
+      return;
+    }
+    const user = await User.findOne({ email }).select("+password");
+    if (!user || !(await user.matchPassword(password))) {
+      res.status(401).json({ success: false, message: "بيانات الدخول غير صحيحة" });
+      return;
+    }
+    if (!user.isActive) {
+      res.status(401).json({ success: false, message: "الحساب معطّل، تواصل مع المدير" });
+      return;
+    }
+    user.lastLogin = new Date();
+    await user.save({ validateBeforeSave: false });
+    const token = signToken(String(user._id));
+    res.json({
+      success: true,
+      token,
+      user: { id: user._id, name: user.name, email: user.email, role: user.role, permissions: user.permissions, avatar: user.avatar },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "خطأ في الخادم" });
+  }
+});
+
+// GET /api/auth/me
+router.get("/me", protect, async (req: AuthRequest, res: Response) => {
+  res.json({ success: true, user: req.user });
+});
+
+// POST /api/auth/logout
+router.post("/logout", protect, (_req: Request, res: Response) => {
+  res.json({ success: true, message: "تم تسجيل الخروج" });
+});
+
+// PUT /api/auth/change-password
+router.put("/change-password", protect, async (req: AuthRequest, res: Response) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const user = await User.findById(req.user._id).select("+password");
+    if (!user || !(await user.matchPassword(currentPassword))) {
+      res.status(400).json({ success: false, message: "كلمة المرور الحالية غير صحيحة" });
+      return;
+    }
+    user.password = newPassword;
+    await user.save();
+    res.json({ success: true, message: "تم تغيير كلمة المرور بنجاح" });
+  } catch {
+    res.status(500).json({ success: false, message: "خطأ في الخادم" });
+  }
+});
+
+export default router;

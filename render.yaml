@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: sowwan-pos-api
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        value: mongodb+srv://broosowwan_db_user:hQPIrNAA6dzdDpOJ@cluster0.cnz7iay.mongodb.net/sowwan_pos?retryWrites=true&w=majority&appName=Cluster0
+      - key: JWT_SECRET
+        value: SowwanPOS_JWT_Super_Secret_2026
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: JWT_REFRESH_SECRET
+        value: SowwanPOS_Refresh_2026
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 30d
+      - key: FRONTEND_URL
+        sync: false
