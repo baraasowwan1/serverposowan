@@ -2,7 +2,7 @@ import { Router, Request, Response } from "express";
 import TenantStore from "../models/TenantStore";
 import Plan from "../models/Plan";
 import AuditLog from "../models/AuditLog";
-import User from "../models/User";
+import { User } from "../models/User";
 
 const router = Router();
 
