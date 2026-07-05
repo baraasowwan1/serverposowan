@@ -6,7 +6,7 @@ import { protect, AuthRequest } from "../middleware/auth";
 const router = Router();
 
 const signToken = (id: string) =>
-  jwt.sign({ id }, process.env.JWT_SECRET!, { expiresIn: process.env.JWT_EXPIRES_IN || "7d" });
+  jwt.sign({ id }, process.env.JWT_SECRET as string, { expiresIn: (process.env.JWT_EXPIRES_IN || "7d") as any });
 
 // POST /api/auth/login
 router.post("/login", async (req: Request, res: Response) => {
@@ -21,7 +21,7 @@ router.post("/login", async (req: Request, res: Response) => {
       res.status(401).json({ success: false, message: "بيانات الدخول غير صحيحة" });
       return;
     }
-    if (!user.isActive) {
+    if (user.status !== "نشط") {
       res.status(401).json({ success: false, message: "الحساب معطّل، تواصل مع المدير" });
       return;
     }
