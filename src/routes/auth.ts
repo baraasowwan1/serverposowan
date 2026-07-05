@@ -8,15 +8,20 @@ const router = Router();
 const signToken = (id: string) =>
   jwt.sign({ id }, process.env.JWT_SECRET as string, { expiresIn: (process.env.JWT_EXPIRES_IN || "7d") as any });
 
-// POST /api/auth/login
+// POST /api/auth/login — supports username OR email login
 router.post("/login", async (req: Request, res: Response) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) {
-      res.status(400).json({ success: false, message: "البريد الإلكتروني وكلمة المرور مطلوبان" });
+    const { email, username, password } = req.body;
+    const credential = username || email;
+    if (!credential || !password) {
+      res.status(400).json({ success: false, message: "اسم المستخدم وكلمة المرور مطلوبان" });
       return;
     }
-    const user = await User.findOne({ email }).select("+password");
+    // Find by username or email
+    const user = await User.findOne({
+      $or: [{ username: credential.toLowerCase() }, { email: credential.toLowerCase() }]
+    }).select("+password");
+
     if (!user || !(await user.matchPassword(password))) {
       res.status(401).json({ success: false, message: "بيانات الدخول غير صحيحة" });
       return;
@@ -25,13 +30,29 @@ router.post("/login", async (req: Request, res: Response) => {
       res.status(401).json({ success: false, message: "الحساب معطّل، تواصل مع المدير" });
       return;
     }
+
+    // Check store status for store users
+    if (user.role !== "مالك المنصة" && user.storeSlug) {
+      const { TenantStore } = await import("../models/TenantStore") as any;
+      const store = await TenantStore.findOne({ slug: user.storeSlug });
+      if (store?.status === "suspended") {
+        res.status(403).json({ success: false, message: `متجر "${store.name}" موقوف. تواصل مع إدارة المنصة.` });
+        return;
+      }
+    }
+
     user.lastLogin = new Date();
     await user.save({ validateBeforeSave: false });
     const token = signToken(String(user._id));
     res.json({
       success: true,
       token,
-      user: { id: user._id, name: user.name, email: user.email, role: user.role, permissions: user.permissions, avatar: user.avatar },
+      user: {
+        id: user._id, name: user.name, email: user.email,
+        username: user.username, role: user.role,
+        permissions: user.permissions, storeSlug: user.storeSlug,
+        status: user.status, avatar: user.avatar,
+      },
     });
   } catch (err) {
     res.status(500).json({ success: false, message: "خطأ في الخادم" });
